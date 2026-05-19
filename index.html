@@ -1,0 +1,1789 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>에누리 A/B 테스트 대시보드</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1117;
+  --bg2: #171b26;
+  --bg3: #1e2333;
+  --bg4: #252c40;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.13);
+  --text: #e8eaf0;
+  --text2: #8b92a8;
+  --text3: #555d72;
+  --blue: #4f8ef7;
+  --blue-dim: rgba(79,142,247,0.15);
+  --red: #f76b6b;
+  --red-dim: rgba(247,107,107,0.15);
+  --green: #4ecb94;
+  --green-dim: rgba(78,203,148,0.12);
+  --amber: #f7b24f;
+  --amber-dim: rgba(247,178,79,0.12);
+  --accent: #4f8ef7;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Pretendard', -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+.mono { font-family: 'IBM Plex Mono', monospace; }
+
+/* Layout */
+.shell { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 220px;
+  min-width: 220px;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 0;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+.main { flex: 1; padding: 28px; overflow-x: hidden; }
+
+/* Sidebar */
+.logo {
+  padding: 0 18px 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+.logo-title { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: 0.02em; }
+.logo-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+.sidebar-section { padding: 0 10px; margin-bottom: 20px; }
+.sidebar-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0 8px;
+  margin-bottom: 6px;
+}
+.cate-check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text2);
+  transition: all 0.15s;
+  user-select: none;
+}
+.cate-check-item:hover { background: var(--bg3); color: var(--text); }
+.cate-check-item input[type=checkbox] { display: none; }
+.cate-check-box {
+  width: 15px; height: 15px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border2);
+  background: transparent;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.cate-check-box svg { display: none; }
+.cate-check-item.checked .cate-check-box {
+  border-color: var(--item-col, var(--blue));
+  background: var(--item-col, var(--blue));
+}
+.cate-check-item.checked .cate-check-box svg { display: block; }
+.cate-check-item.checked { color: var(--text); }
+.cate-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.cate-ctrl {
+  display: flex; gap: 4px; padding: 0 8px; margin-bottom: 8px;
+}
+.cate-ctrl button {
+  font-size: 10px; padding: 3px 7px;
+  border-radius: 4px; border: 1px solid var(--border2);
+  background: var(--bg3); color: var(--text3);
+  cursor: pointer; font-family: inherit;
+  transition: all 0.12s;
+}
+.cate-ctrl button:hover { color: var(--text); border-color: var(--border); }
+.cate-sector-label {
+  font-size: 10px; font-weight: 600; color: var(--text3);
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 6px 8px 3px;
+}
+
+/* Calendar picker */
+.cal-wrap { padding: 0 10px; margin-bottom: 20px; }
+.cal-header { display:flex; align-items:center; justify-content:space-between; padding: 0 8px; margin-bottom:8px; }
+.cal-nav { background:none; border:none; color:var(--text3); cursor:pointer; font-size:14px; padding:2px 6px; border-radius:4px; transition:color .15s; }
+.cal-nav:hover { color:var(--text); }
+.cal-month { font-size:11px; font-weight:600; color:var(--text2); }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:0 4px; }
+.cal-dow { font-size:9px; color:var(--text3); text-align:center; padding:3px 0; font-weight:600; }
+.cal-day {
+  font-size:10px; text-align:center; padding:5px 2px;
+  border-radius:5px; cursor:pointer; color:var(--text2);
+  border:1px solid transparent; transition:all .12s;
+  position:relative; line-height:1.2;
+}
+.cal-day:hover:not(.empty):not(.no-data) { background:var(--bg3); color:var(--text); }
+.cal-day.empty { cursor:default; }
+.cal-day.no-data { color:var(--text3); cursor:default; opacity:0.4; }
+.cal-day.has-data { color:var(--text); }
+.cal-day.weekend { color:var(--amber); }
+.cal-day.holiday { color:var(--red); }
+.cal-day.selected { background:var(--blue); color:#fff !important; font-weight:600; }
+.cal-day.in-range { background:var(--blue-dim); color:var(--blue); }
+.cal-day.range-start { background:var(--blue); color:#fff !important; border-radius:5px 0 0 5px; }
+.cal-day.range-end { background:var(--blue); color:#fff !important; border-radius:0 5px 5px 0; }
+.cal-day .dot { width:3px;height:3px;border-radius:50%;background:var(--green);position:absolute;bottom:2px;left:50%;transform:translateX(-50%); }
+.cal-quick { display:flex; flex-direction:column; gap:3px; padding:0 8px; margin-top:6px; }
+.cal-quick button {
+  font-size:10px; padding:4px 8px; border-radius:4px;
+  border:1px solid var(--border2); background:var(--bg3);
+  color:var(--text3); cursor:pointer; font-family:inherit;
+  text-align:left; transition:all .12s;
+}
+.cal-quick button:hover { color:var(--text); border-color:var(--border); }
+.cal-quick button.on { background:var(--blue-dim); color:var(--blue); border-color:rgba(79,142,247,0.3); }
+.cal-range-display {
+  font-size:10px; color:var(--text3); padding:5px 8px;
+  background:var(--bg3); border-radius:5px; margin:6px 8px 0;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.cal-range-display span { color:var(--text2); font-weight:500; }
+
+/* Compare mode */
+.cmp-wrap { padding:0 10px; margin-bottom:20px; }
+.cmp-toggle {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:7px 8px; border-radius:var(--radius-sm);
+  background:var(--bg3); cursor:pointer; user-select:none;
+}
+.cmp-toggle-label { font-size:11px; color:var(--text2); }
+.cmp-switch { width:28px;height:16px;border-radius:8px;background:var(--border2);position:relative;transition:background .2s; }
+.cmp-switch.on { background:var(--blue); }
+.cmp-switch::after { content:'';position:absolute;width:12px;height:12px;border-radius:50%;background:#fff;top:2px;left:2px;transition:transform .2s; }
+.cmp-switch.on::after { transform:translateX(12px); }
+.cmp-cal { margin-top:8px; display:none; }
+.cmp-cal.show { display:block; }
+.cmp-label { font-size:10px;font-weight:600;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;padding:0 8px;margin-bottom:6px; }
+
+/* Compare banner */
+.cmp-banner {
+  background:var(--bg2); border:1px solid rgba(78,203,148,0.25);
+  border-radius:var(--radius); padding:14px 18px; margin-bottom:22px;
+  display:none;
+}
+.cmp-banner.show { display:block; }
+.cmp-banner-title { font-size:11px;font-weight:600;color:var(--green);margin-bottom:10px; }
+.cmp-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; }
+.cmp-card { background:var(--bg3); border-radius:var(--radius-sm); padding:10px 12px; }
+.cmp-card-label { font-size:10px;color:var(--text3);margin-bottom:6px; }
+.cmp-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px; }
+.cmp-period { font-size:10px;color:var(--text3); }
+.cmp-val { font-size:13px;font-weight:600;font-family:'IBM Plex Mono',monospace;color:var(--text); }
+.cmp-delta { font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace; margin-top:4px; padding-top:4px; border-top:1px solid var(--border); }
+
+
+
+.metric-select-wrap { padding: 0 10px; margin-bottom: 20px; }
+.metric-select-wrap select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-size: 12px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+}
+.metric-select-wrap select:focus { outline: none; border-color: var(--blue); }
+
+.legend-wrap { padding: 0 18px; margin-top: auto; border-top: 1px solid var(--border); padding-top: 16px; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+.legend-swatch { width: 22px; height: 3px; border-radius: 2px; }
+
+/* Main header */
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
+.page-title { font-size: 20px; font-weight: 600; color: var(--text); }
+.page-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
+.badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+}
+.badge-blue { background: var(--blue-dim); color: var(--blue); }
+.badge-red { background: var(--red-dim); color: var(--red); }
+.badge-amber { background: var(--amber-dim); color: var(--amber); }
+
+/* Summary cards */
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 10px; margin-bottom: 22px; }
+.mcard {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  position: relative;
+  transition: border-color 0.15s;
+}
+.mcard:hover { border-color: var(--border2); }
+.mcard.star { border-color: rgba(79,142,247,0.35); background: linear-gradient(135deg, var(--bg2) 0%, rgba(79,142,247,0.05) 100%); }
+.mcard .clabel { font-size: 10px; color: var(--text3); margin-bottom: 8px; font-weight: 500; letter-spacing: 0.03em; }
+.mcard .cvals { display: flex; gap: 12px; align-items: baseline; margin-bottom: 6px; }
+.mcard .cval-a { font-size: 15px; font-weight: 600; color: var(--blue); font-family: 'IBM Plex Mono', monospace; }
+.mcard .cval-b { font-size: 15px; font-weight: 600; color: var(--red); font-family: 'IBM Plex Mono', monospace; }
+.mcard .cdiff { font-size: 11px; font-weight: 500; font-family: 'IBM Plex Mono', monospace; }
+.mcard .star-badge {
+  position: absolute; top: 10px; right: 10px;
+  font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+  background: var(--blue-dim); color: var(--blue);
+  padding: 2px 6px; border-radius: 4px;
+}
+
+/* Section */
+.section { margin-bottom: 24px; }
+.section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.section-title { font-size: 12px; font-weight: 600; color: var(--text2); letter-spacing: 0.04em; text-transform: uppercase; }
+.section-line { flex: 1; height: 1px; background: var(--border); }
+
+/* Chart containers */
+.chart-box {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.chart-box.star { border-color: rgba(79,142,247,0.3); }
+.chart-label { font-size: 11px; color: var(--text3); margin-bottom: 12px; font-weight: 500; }
+.chart-label.hi { color: var(--blue); font-weight: 600; }
+.chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.chart-grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+
+/* Table */
+.table-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; min-width: 860px; }
+thead tr { background: var(--bg3); }
+th {
+  padding: 9px 10px;
+  text-align: right;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text3);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+th.tl { text-align: left; }
+td {
+  padding: 7px 10px;
+  text-align: right;
+  color: var(--text2);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+}
+td.tl { text-align: left; font-family: 'Pretendard', sans-serif; }
+td.hi-col { background: rgba(79,142,247,0.07); font-weight: 600; color: var(--text); }
+tr.diff-row td { background: rgba(255,255,255,0.02); font-size: 11px; border-bottom: 2px solid var(--border2); }
+.pos { color: var(--green); }
+.neg { color: var(--red); }
+.neu { color: var(--text3); }
+.ga { color: var(--blue); font-weight: 500; }
+.gb { color: var(--red); font-weight: 500; }
+
+/* Note box */
+.note {
+  background: var(--amber-dim);
+  border: 1px solid rgba(247,178,79,0.2);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 11px;
+  color: var(--amber);
+  margin-bottom: 22px;
+  line-height: 1.6;
+}
+
+.tab-btn { font-size:12px; padding:4px 12px; border-radius:var(--radius-sm); border:0.5px solid var(--border2); background:var(--bg3); color:var(--text3); cursor:pointer; font-family:inherit; transition:all 0.15s; }
+.tab-btn:hover { color:var(--text); border-color:var(--border); }
+.tab-btn.on { background:var(--blue-dim); color:var(--blue); border-color:rgba(79,142,247,0.3); font-weight:500; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .chart-grid-2 { grid-template-columns: 1fr; }
+  .chart-grid-4 { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-title">에누리 A/B 테스트</div>
+      <div class="logo-sub">카드혜택가 노출 실험 · 2026.04.30–05.17</div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">카테고리</div>
+      <div class="cate-ctrl">
+        <button onclick="selectAllCates()">전체 선택</button>
+        <button onclick="clearAllCates()">전체 해제</button>
+      </div>
+      <div id="cateList"></div>
+    </div>
+
+    <div class="cal-wrap">
+      <div class="sidebar-label" style="padding:0 8px;margin-bottom:8px;">기간 선택</div>
+      <div class="cal-quick" id="quickBtns">
+        <button onclick="quickSelect('all')" class="on" data-q="all">전체 기간 (18일)</button>
+        <button onclick="quickSelect('weekday')" data-q="weekday">평일만 (10일)</button>
+        <button onclick="quickSelect('holiday')" data-q="holiday">공휴일·주말 (8일)</button>
+      </div>
+      <div class="cal-range-display" id="rangeDisplay">
+        <span id="rangeText">04-30 ~ 05-17</span>
+        <span style="font-size:9px;color:var(--text3)" id="rangeDays">18일</span>
+      </div>
+      <div class="cal-header" style="margin-top:10px;">
+        <button class="cal-nav" id="calPrev">‹</button>
+        <span class="cal-month" id="calMonthLabel"></span>
+        <button class="cal-nav" id="calNext">›</button>
+      </div>
+      <div class="cal-grid" id="calGrid">
+        <div class="cal-dow">일</div><div class="cal-dow">월</div><div class="cal-dow">화</div>
+        <div class="cal-dow">수</div><div class="cal-dow">목</div><div class="cal-dow">금</div><div class="cal-dow">토</div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);padding:6px 8px 0;">날짜 클릭으로 범위 선택</div>
+    </div>
+
+    <div class="cmp-wrap">
+      <div class="cmp-toggle" onclick="toggleCompare()">
+        <span class="cmp-toggle-label">기간 비교 모드</span>
+        <div class="cmp-switch" id="cmpSwitch"></div>
+      </div>
+      <div class="cmp-cal" id="cmpCal">
+        <div class="cmp-label" style="margin-top:10px;">비교 기간</div>
+        <div class="cal-header">
+          <button class="cal-nav" id="calPrev2">‹</button>
+          <span class="cal-month" id="calMonthLabel2"></span>
+          <button class="cal-nav" id="calNext2">›</button>
+        </div>
+        <div class="cal-grid" id="calGrid2">
+          <div class="cal-dow">일</div><div class="cal-dow">월</div><div class="cal-dow">화</div>
+          <div class="cal-dow">수</div><div class="cal-dow">목</div><div class="cal-dow">금</div><div class="cal-dow">토</div>
+        </div>
+        <div class="cal-range-display" id="rangeDisplay2" style="display:none">
+          <span id="rangeText2">—</span>
+          <span style="font-size:9px;color:var(--text3)" id="rangeDays2"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="metric-select-wrap">
+      <div class="filter-label" style="margin-bottom:6px">날짜별 차트 지표</div>
+      <select id="selMetric">
+        <option value="cvr_lp_co">★ LP→CO CVR (최종 전환율)</option>
+        <option value="lp_uv">LP UV</option>
+        <option value="lp_pv">LP PV</option>
+        <option value="cvr_lp_det">LP→상세 CVR (UV)</option>
+        <option value="cvr_det_co">상세→CO CVR (UV)</option>
+        <option value="cvr_det_co_pv">상세→CO CVR (PV)</option>
+        <option value="pvr">PV/UV 비율</option>
+      </select>
+    </div>
+
+    <div class="legend-wrap">
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--blue)"></div>A군 (개선 전)</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--red);opacity:0.8"></div>B군 (카드혜택가)</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <div class="page-title">A/B 테스트 분석 대시보드</div>
+        <div class="page-sub">카드혜택가 리스트 노출(B군) vs 기존 UI(A군) · tempid 기반 랜덤 분배</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <span class="badge badge-blue">A군 — 개선 전</span>
+        <span class="badge badge-red">B군 — 카드혜택가</span>
+        <span class="badge badge-amber">황금연휴 포함</span>
+      </div>
+    </div>
+
+    <div class="note" id="noteBox">
+      ⚠ <strong>기간·분류:</strong> 테스트 기간(04-30~05-17) 중 노동절(05-01/금), 주말(05-02~03·05-09~10), 어린이날(05-05/화) 포함 — 평일 8일 / 공휴일·주말 6일.
+      &nbsp;|&nbsp; <strong>이상치 주의:</strong>
+      ① 05-12(화) 세탁기 A군 LP PV=1,159 (LP UV=24 대비 48배, 봇 트래픽 의심 → PV 기반 지표 해석 주의)
+      &nbsp;② 스포츠화·화장지 등 다수 날짜에서 co_pv&gt;lp_pv 발생 (재방문 중복 카운트) → PV 기반 CVR은 참고용.
+      UV 기반 지표는 정상.
+      &nbsp;|&nbsp; <strong>표본 주의:</strong> 커피/차(LP UV ~46명), 토너(~15명)는 통계적 신뢰 불가.
+    </div>
+
+    <!-- 기간 비교 배너 -->
+    <div class="cmp-banner" id="cmpBanner">
+      <div class="cmp-banner-title">📊 기간 비교 — <span id="cmpBannerTitle"></span></div>
+      <div class="cmp-grid" id="cmpGrid"></div>
+    </div>
+
+    <!-- 요약 카드 -->
+    <div class="section">
+      <div class="section-head">
+        <span class="section-title">퍼널 요약</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="card-grid" id="cards"></div>
+    </div>
+
+    <!-- 날짜별 추이 -->
+    <div class="section">
+      <div class="section-head">
+        <span class="section-title">날짜별 추이</span>
+        <div class="section-line"></div>
+        <div style="display:flex;gap:12px;font-size:11px;color:var(--text3);">
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:2px;background:var(--blue);display:inline-block;border-radius:1px"></span>A군</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:2px;background:var(--red);display:inline-block;border-radius:1px;border-top:2px dashed var(--red);height:0"></span>B군</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;background:rgba(78,203,148,0.18);border-radius:2px;display:inline-block"></span>B>A 구간</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:12px;height:12px;background:rgba(247,107,107,0.15);border-radius:2px;display:inline-block"></span>A>B 구간</span>
+          <span style="display:flex;align-items:center;gap:4px;color:rgba(255,255,255,0.2)">│</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:rgba(247,178,79,0.25);border:1px solid rgba(247,178,79,0.4);border-radius:2px;display:inline-block"></span>공휴일</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:rgba(139,146,168,0.15);border:1px solid rgba(139,146,168,0.3);border-radius:2px;display:inline-block"></span>주말</span>
+        </div>
+      </div>
+      <div class="chart-box" style="padding-bottom:8px;">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:6px;" id="dtChartLabel">A/B 추이</div>
+        <div style="position:relative;width:100%;height:220px;">
+          <canvas id="dtChart" role="img" aria-label="날짜별 A/B 지표 추이"></canvas>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin:12px 0 6px;">B-A 차이값 <span style="font-size:10px;color:var(--text3)">(양수=B 우세, 음수=A 우세)</span></div>
+        <div style="position:relative;width:100%;height:100px;">
+          <canvas id="dtDiffChart" role="img" aria-label="날짜별 B-A 차이값"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4개 CVR 차트 -->
+    <div class="section">
+      <div class="section-head">
+        <span class="section-title">카테고리별 CVR 비교</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="chart-grid-2">
+        <div class="chart-box">
+          <div class="chart-label">LP → 상세 CVR (UV 기준)</div>
+          <div style="position:relative;width:100%;height:240px;">
+            <canvas id="c1" role="img" aria-label="LP→상세 CVR"></canvas>
+          </div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-label">상세 → 클릭아웃 CVR (UV 기준)</div>
+          <div style="position:relative;width:100%;height:240px;">
+            <canvas id="c2" role="img" aria-label="상세→클릭아웃 CVR UV"></canvas>
+          </div>
+        </div>
+        <div class="chart-box star">
+          <div class="chart-label hi">★ LP → 클릭아웃 CVR (UV 기준) — 총 유입 최종 전환율</div>
+          <div style="position:relative;width:100%;height:240px;">
+            <canvas id="c3" role="img" aria-label="LP→클릭아웃 최종 전환율"></canvas>
+          </div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-label">상세 → 클릭아웃 CVR (PV 기준)</div>
+          <div style="position:relative;width:100%;height:240px;">
+            <canvas id="c4" role="img" aria-label="상세→클릭아웃 CVR PV"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LP UV / PV 볼륨 -->
+    <div class="section">
+      <div class="section-head">
+        <span class="section-title">카테고리별 트래픽 볼륨</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="chart-grid-2">
+        <div class="chart-box">
+          <div class="chart-label">LP UV 합계</div>
+          <div style="position:relative;width:100%;height:240px;">
+            <canvas id="c5" role="img" aria-label="카테고리별 LP UV 합계"></canvas>
+          </div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-label">LP PV 합계</div>
+          <div style="position:relative;width:100%;height:240px;">
+            <canvas id="c6" role="img" aria-label="카테고리별 LP PV 합계"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 기간별 누적 총합 -->
+    <div class="section">
+      <div class="section-head">
+        <span class="section-title">기간별 카테고리 누적 총합</span>
+        <div class="section-line"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="tab-btn on" id="cumBtn0" onclick="setCumMetric('lp_uv')">LP UV</button>
+          <button class="tab-btn" id="cumBtn1" onclick="setCumMetric('co_uv')">CO UV</button>
+          <button class="tab-btn" id="cumBtn2" onclick="setCumMetric('cvr_lp_co')">LP→CO CVR</button>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--text3);margin:0 0 10px;">날짜가 누적될수록 각 카테고리의 총합이 어떻게 쌓이는지 확인합니다. A/B 합산 기준.</p>
+
+      <div class="chart-grid-2" style="margin-bottom:12px;">
+        <div class="chart-box">
+          <div class="chart-label">A군 — 카테고리별 누적</div>
+          <div style="position:relative;width:100%;height:280px;">
+            <canvas id="cumA" role="img" aria-label="A군 카테고리별 누적 추이"></canvas>
+          </div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-label">B군 — 카테고리별 누적</div>
+          <div style="position:relative;width:100%;height:280px;">
+            <canvas id="cumB" role="img" aria-label="B군 카테고리별 누적 추이"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 누적 총합 테이블 -->
+      <p style="font-size:11px;color:var(--text3);margin:0 0 6px;">카테고리 × 기간 누적 총합 테이블</p>
+      <div class="table-wrap">
+        <div class="table-scroll">
+          <table id="cumTable" style="width:100%;border-collapse:collapse;min-width:700px;"></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 상세 테이블 -->
+    <div class="section">
+      <div class="section-head">
+        <span class="section-title">카테고리 상세 — 전체 퍼널</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-scroll">
+          <table id="tbl"></table>
+        </div>
+      </div>
+    </div>
+
+    <div style="font-size:11px;color:var(--text3);margin-top:16px;text-align:right;">
+      데이터 기간: 2026-04-30 ~ 2026-05-17 · 카테고리: TV, 세탁기, 소파/거실가구, 스포츠화, 화장지/물티슈, 커피/차, 토너
+    </div>
+  </main>
+</div>
+
+<script>
+const CATE = {
+  '0201':{n:'TV', s:'디지털', col:'#4f8ef7'},
+  '0502':{n:'세탁기', s:'디지털', col:'#6fa3f9'},
+  '1201':{n:'소파/거실가구', s:'라이프', col:'#4ecb94'},
+  '0937':{n:'스포츠화', s:'라이프', col:'#7ddbb4'},
+  '1614':{n:'화장지/물티슈', s:'대량/반복', col:'#f7b24f'},
+  '1505':{n:'커피/차', s:'대량/반복', col:'#f7c87a'},
+  '040207':{n:'토너', s:'대량/반복', col:'#f7da9f'}
+};
+const DL = {46142:'04-30(목)',46143:'05-01(금)',46144:'05-02(토)',46145:'05-03(일)',46146:'05-04(월)',46147:'05-05(화)',46148:'05-06(수)',46149:'05-07(목)',46150:'05-08(금)',46151:'05-09(토)',46152:'05-10(일)',46153:'05-11(월)',46154:'05-12(화)',46155:'05-13(수)',46156:'05-14(목)',46157:'05-15(금)',46158:'05-16(토)',46159:'05-17(일)'};
+// 공휴일: 05-01(금/노동절), 05-02(토), 05-03(일), 05-05(화/어린이날), 05-09(토), 05-10(일)
+const HOL = new Set([46143,46144,46145,46147,46151,46152,46158,46159]);
+// 평일: 04-30(목), 05-04(월), 05-06(수), 05-07(목), 05-08(금), 05-11(월), 05-12(화), 05-13(수)
+const WKD = new Set([46142,46146,46148,46149,46150,46153,46154,46155,46156,46157]);
+const ALL_DATES = [46142,46143,46144,46145,46146,46147,46148,46149,46150,46151,46152,46153,46154,46155,46156,46157,46158,46159];
+const CK = Object.keys(CATE);
+const CA='#4f8ef7', CB='#f76b6b';
+
+const pvR=[
+  [46142,'0201','A',51,17,17],[46142,'0201','B',50,31,19],
+  [46142,'040207','A',1,0,0],[46142,'040207','B',1,0,0],
+  [46142,'0502','A',21,6,3],[46142,'0502','B',13,6,3],
+  [46142,'0937','A',43,75,83],[46142,'0937','B',27,7,5],
+  [46142,'1201','A',3,3,3],[46142,'1201','B',2,0,0],
+  [46142,'1505','A',9,0,0],[46142,'1505','B',5,7,6],
+  [46142,'1614','A',5,2,1],[46142,'1614','B',3,3,0],
+  [46143,'0201','A',71,35,15],[46143,'0201','B',126,113,70],
+  [46143,'0502','A',120,37,42],[46143,'0502','B',57,41,39],
+  [46143,'0937','A',40,26,32],[46143,'0937','B',11,1,1],
+  [46143,'1201','A',9,4,5],[46143,'1201','B',11,10,1],
+  [46143,'1505','A',7,3,2],[46143,'1505','B',6,2,1],
+  [46143,'1614','A',7,6,7],[46143,'1614','B',7,10,1],
+  [46144,'0201','A',64,34,14],[46144,'0201','B',163,101,61],
+  [46144,'0502','A',35,24,12],[46144,'0502','B',71,32,30],
+  [46144,'0937','A',43,50,52],[46144,'0937','B',30,69,46],
+  [46144,'1201','A',12,1,1],[46144,'1201','B',8,15,2],
+  [46144,'1505','A',4,1,1],[46144,'1614','B',3,0,0],
+  [46145,'0201','A',94,49,44],[46145,'0201','B',103,79,28],
+  [46145,'040207','A',5,0,0],
+  [46145,'0502','A',38,17,21],[46145,'0502','B',49,23,11],
+  [46145,'0937','A',42,22,20],[46145,'0937','B',14,22,3],
+  [46145,'1201','A',7,4,2],[46145,'1201','B',14,6,2],
+  [46145,'1505','A',5,8,4],[46145,'1505','B',6,6,14],
+  [46145,'1614','A',2,0,0],[46145,'1614','B',4,4,4],
+  [46146,'0201','A',58,31,26],[46146,'0201','B',73,36,9],
+  [46146,'0502','A',47,41,32],[46146,'0502','B',51,32,14],
+  [46146,'0937','A',17,17,24],[46146,'0937','B',43,14,6],
+  [46146,'1201','A',27,22,8],[46146,'1201','B',11,14,3],
+  [46146,'1505','A',5,1,1],[46146,'1505','B',16,7,3],
+  [46146,'1614','A',6,2,0],[46146,'1614','B',4,0,0],
+  [46147,'0201','A',61,48,26],[46147,'0201','B',63,44,8],
+  [46147,'0502','A',82,41,27],[46147,'0502','B',64,32,10],
+  [46147,'0937','A',19,25,32],[46147,'0937','B',23,33,23],
+  [46147,'1201','A',18,12,4],[46147,'1201','B',13,13,7],
+  [46147,'1505','A',3,0,0],[46147,'1505','B',8,7,4],
+  [46147,'1614','A',6,6,6],[46147,'1614','B',6,6,2],
+  [46148,'0201','A',79,53,29],[46148,'0201','B',66,53,56],
+  [46148,'040207','A',1,0,0],[46148,'040207','B',1,0,0],
+  [46148,'0502','A',60,45,68],[46148,'0502','B',55,41,43],
+  [46148,'0937','A',10,2,1],[46148,'0937','B',22,8,13],
+  [46148,'1201','A',4,2,2],[46148,'1201','B',4,1,0],
+  [46148,'1505','A',1,0,0],[46148,'1505','B',8,10,5],
+  [46148,'1614','A',16,21,31],[46148,'1614','B',2,1,0],
+  [46149,'0201','A',63,30,27],[46149,'0201','B',83,47,40],
+  [46149,'040207','A',1,0,0],[46149,'040207','B',2,2,1],
+  [46149,'0502','A',43,20,18],[46149,'0502','B',29,15,24],
+  [46149,'0937','A',13,4,2],[46149,'0937','B',43,43,40],
+  [46149,'1201','A',20,16,3],[46149,'1201','B',3,0,0],
+  [46149,'1505','A',1,0,0],[46149,'1505','B',6,3,2],
+  [46149,'1614','A',5,3,2],[46149,'1614','B',2,0,0],
+  [46150,'0201','A',57,34,21],[46150,'0201','B',76,25,16],
+  [46150,'040207','B',6,15,12],
+  [46150,'0502','A',37,18,21],[46150,'0502','B',29,9,9],
+  [46150,'0937','A',17,6,5],[46150,'0937','B',28,17,38],
+  [46150,'1201','A',9,4,5],[46150,'1201','B',1,0,0],
+  [46150,'1505','A',3,1,0],[46150,'1505','B',4,1,1],
+  [46150,'1614','A',3,1,1],[46150,'1614','B',12,14,10],
+  [46151,'0201','A',105,54,25],[46151,'0201','B',65,32,28],
+  [46151,'0502','A',38,16,5],[46151,'0502','B',45,21,6],
+  [46151,'0937','A',23,28,8],[46151,'0937','B',28,31,39],
+  [46151,'1201','A',14,4,3],[46151,'1201','B',20,11,5],
+  [46151,'1505','A',2,0,0],[46151,'1505','B',14,7,6],
+  [46151,'1614','B',9,1,0],
+  [46152,'0201','A',89,36,30],[46152,'0201','B',112,82,44],
+  [46152,'0502','A',30,15,7],[46152,'0502','B',53,46,32],
+  [46152,'0937','A',33,35,22],[46152,'0937','B',32,16,8],
+  [46152,'1201','A',33,12,5],[46152,'1201','B',14,7,4],
+  [46152,'1505','A',3,1,0],[46152,'1505','B',13,10,16],
+  [46152,'1614','A',3,2,1],[46152,'1614','B',10,4,7],
+  [46153,'0201','A',65,30,8],[46153,'0201','B',61,38,21],
+  [46153,'040207','A',4,0,0],
+  [46153,'0502','A',35,19,15],[46153,'0502','B',62,37,18],
+  [46153,'0937','A',15,8,3],[46153,'0937','B',8,1,0],
+  [46153,'1201','A',7,6,3],[46153,'1201','B',31,22,14],
+  [46153,'1505','A',1,7,1],[46153,'1505','B',4,2,3],
+  [46153,'1614','A',6,4,0],[46153,'1614','B',4,0,0],
+  [46154,'0201','A',56,20,11],[46154,'0201','B',59,33,25],
+  [46154,'0502','A',1159,20,14],[46154,'0502','B',68,53,36],
+  [46154,'0937','A',38,60,87],[46154,'0937','B',25,11,10],
+  [46154,'1201','A',32,21,4],[46154,'1201','B',10,5,3],
+  [46154,'1505','A',9,7,1],[46154,'1505','B',8,3,3],
+  [46154,'1614','A',3,0,0],
+  [46155,'0201','A',45,15,28],[46155,'0201','B',52,28,24],
+  [46155,'0502','A',52,25,16],[46155,'0502','B',25,7,2],
+  [46155,'0937','A',14,14,3],[46155,'0937','B',29,17,10],
+  [46155,'1201','A',22,8,2],[46155,'1201','B',16,31,7],
+  [46155,'1505','A',1,2,0],[46155,'1505','B',1,0,0],
+  [46155,'1614','B',7,9,2],
+  // 05-14 (목 — 평일)
+  [46156,'0201','A',45,13,7],[46156,'0201','B',56,37,14],
+  [46156,'040207','B',1,0,0],
+  [46156,'0502','A',78,47,27],[46156,'0502','B',29,12,17],
+  [46156,'0937','A',16,29,22],[46156,'0937','B',18,17,9],
+  [46156,'1201','A',12,5,2],[46156,'1201','B',15,10,8],
+  [46156,'1505','A',3,2,1],[46156,'1505','B',9,1,1],
+  [46156,'1614','A',1,0,0],[46156,'1614','B',1,0,0],
+  // 05-15 (금 — 평일)
+  [46157,'0201','A',39,14,1],[46157,'0201','B',56,31,15],
+  [46157,'040207','A',1,0,0],
+  [46157,'0502','A',78,16,11],[46157,'0502','B',40,43,33],
+  [46157,'0937','A',22,13,10],[46157,'0937','B',45,22,17],
+  [46157,'1201','A',5,2,0],[46157,'1201','B',24,19,13],
+  [46157,'1505','A',9,4,4],[46157,'1505','B',9,15,13],
+  [46157,'1614','A',1,0,0],[46157,'1614','B',8,6,3],
+  // 05-16 (토 — 주말)
+  [46158,'0201','A',60,23,13],[46158,'0201','B',93,52,26],
+  [46158,'0502','A',47,42,17],[46158,'0502','B',30,19,15],
+  [46158,'0937','A',35,24,22],[46158,'0937','B',63,57,53],
+  [46158,'1201','A',28,13,0],[46158,'1201','B',20,17,7],
+  [46158,'1505','A',1,0,0],[46158,'1505','B',3,6,6],
+  [46158,'1614','B',3,1,0],
+  // 05-17 (일 — 주말)
+  [46159,'0201','A',53,38,16],[46159,'0201','B',95,37,13],
+  [46159,'040207','B',5,9,9],
+  [46159,'0502','A',62,30,10],[46159,'0502','B',91,75,34],
+  [46159,'0937','A',21,11,8],[46159,'0937','B',25,14,6],
+  [46159,'1201','A',19,14,1],[46159,'1201','B',9,19,12],
+  [46159,'1505','B',5,2,0],
+  [46159,'1614','A',7,2,2],
+];
+const uvR=[
+  [46142,'0201','A',25,7,4],[46142,'0201','B',26,9,4],
+  [46142,'040207','A',1,0,0],[46142,'040207','B',1,0,0],
+  [46142,'0502','A',14,6,3],[46142,'0502','B',10,3,2],
+  [46142,'0937','A',12,9,6],[46142,'0937','B',8,3,3],
+  [46142,'1201','A',2,2,2],[46142,'1201','B',2,0,0],
+  [46142,'1505','A',4,0,0],[46142,'1505','B',4,2,1],
+  [46142,'1614','A',2,2,1],[46142,'1614','B',2,2,0],
+  [46143,'0201','A',42,15,9],[46143,'0201','B',58,32,18],
+  [46143,'0502','A',30,15,13],[46143,'0502','B',31,21,14],
+  [46143,'0937','A',13,7,7],[46143,'0937','B',10,1,1],
+  [46143,'1201','A',4,1,1],[46143,'1201','B',8,2,1],
+  [46143,'1505','A',6,2,1],[46143,'1505','B',3,1,1],
+  [46143,'1614','A',5,3,2],[46143,'1614','B',4,2,1],
+  [46144,'0201','A',36,16,6],[46144,'0201','B',68,36,20],
+  [46144,'0502','A',23,11,7],[46144,'0502','B',27,12,8],
+  [46144,'0937','A',18,11,9],[46144,'0937','B',14,4,2],
+  [46144,'1201','A',10,1,1],[46144,'1201','B',4,3,2],
+  [46144,'1505','A',3,1,1],[46144,'1614','B',2,0,0],
+  [46145,'0201','A',47,20,15],[46145,'0201','B',49,24,12],
+  [46145,'040207','A',3,0,0],
+  [46145,'0502','A',19,9,8],[46145,'0502','B',25,12,6],
+  [46145,'0937','A',19,7,5],[46145,'0937','B',11,3,2],
+  [46145,'1201','A',5,1,1],[46145,'1201','B',9,4,1],
+  [46145,'1505','A',4,1,1],[46145,'1505','B',3,2,1],
+  [46145,'1614','A',2,0,0],[46145,'1614','B',2,1,1],
+  [46146,'0201','A',32,17,5],[46146,'0201','B',41,11,4],
+  [46146,'0502','A',23,16,9],[46146,'0502','B',23,13,8],
+  [46146,'0937','A',9,5,4],[46146,'0937','B',16,5,3],
+  [46146,'1201','A',9,6,2],[46146,'1201','B',7,2,2],
+  [46146,'1505','A',5,1,1],[46146,'1505','B',10,3,2],
+  [46146,'1614','A',4,2,0],[46146,'1614','B',3,0,0],
+  [46147,'0201','A',38,20,11],[46147,'0201','B',33,14,5],
+  [46147,'0502','A',37,17,13],[46147,'0502','B',24,15,7],
+  [46147,'0937','A',12,4,4],[46147,'0937','B',15,5,5],
+  [46147,'1201','A',6,3,2],[46147,'1201','B',5,3,3],
+  [46147,'1505','A',2,0,0],[46147,'1505','B',4,4,4],
+  [46147,'1614','A',3,2,1],[46147,'1614','B',4,3,1],
+  [46148,'0201','A',36,20,12],[46148,'0201','B',33,15,11],
+  [46148,'040207','A',1,0,0],[46148,'040207','B',1,0,0],
+  [46148,'0502','A',31,16,13],[46148,'0502','B',31,16,12],
+  [46148,'0937','A',6,1,1],[46148,'0937','B',14,5,5],
+  [46148,'1201','A',4,2,2],[46148,'1201','B',3,1,0],
+  [46148,'1505','A',1,0,0],[46148,'1505','B',6,3,2],
+  [46148,'1614','A',6,5,5],[46148,'1614','B',2,1,0],
+  [46149,'0201','A',31,11,8],[46149,'0201','B',39,18,10],
+  [46149,'040207','A',1,0,0],[46149,'040207','B',2,1,1],
+  [46149,'0502','A',24,10,10],[46149,'0502','B',22,9,6],
+  [46149,'0937','A',8,3,2],[46149,'0937','B',21,11,8],
+  [46149,'1201','A',5,4,1],[46149,'1201','B',3,0,0],
+  [46149,'1505','A',1,0,0],[46149,'1505','B',4,2,2],
+  [46149,'1614','A',2,1,1],[46149,'1614','B',1,0,0],
+  [46150,'0201','A',27,13,10],[46150,'0201','B',34,13,8],
+  [46150,'040207','B',1,1,1],
+  [46150,'0502','A',23,9,7],[46150,'0502','B',18,4,1],
+  [46150,'0937','A',7,2,1],[46150,'0937','B',7,4,4],
+  [46150,'1201','A',6,2,2],[46150,'1201','B',1,0,0],
+  [46150,'1505','A',1,1,0],[46150,'1505','B',4,1,1],
+  [46150,'1614','A',3,1,1],[46150,'1614','B',9,3,2],
+  [46151,'0201','A',52,23,15],[46151,'0201','B',32,14,8],
+  [46151,'0502','A',26,8,3],[46151,'0502','B',20,10,5],
+  [46151,'0937','A',10,4,1],[46151,'0937','B',16,9,7],
+  [46151,'1201','A',7,2,1],[46151,'1201','B',10,7,4],
+  [46151,'1505','A',2,0,0],[46151,'1505','B',4,3,2],
+  [46151,'1614','B',6,1,0],
+  [46152,'0201','A',46,24,13],[46152,'0201','B',45,24,14],
+  [46152,'0502','A',20,5,2],[46152,'0502','B',22,14,12],
+  [46152,'0937','A',19,6,4],[46152,'0937','B',18,7,4],
+  [46152,'1201','A',12,6,4],[46152,'1201','B',8,5,2],
+  [46152,'1505','A',2,1,0],[46152,'1505','B',5,3,3],
+  [46152,'1614','A',3,0,0],[46152,'1614','B',5,2,2],
+  [46153,'0201','A',39,10,4],[46153,'0201','B',34,14,9],
+  [46153,'040207','A',2,0,0],
+  [46153,'0502','A',21,8,5],[46153,'0502','B',25,16,12],
+  [46153,'0937','A',11,4,3],[46153,'0937','B',5,1,0],
+  [46153,'1201','A',6,3,2],[46153,'1201','B',10,8,5],
+  [46153,'1505','A',1,1,1],[46153,'1505','B',3,1,1],
+  [46153,'1614','A',3,3,0],[46153,'1614','B',2,0,0],
+  [46154,'0201','A',30,13,7],[46154,'0201','B',28,14,7],
+  [46154,'0502','A',24,9,5],[46154,'0502','B',18,14,9],
+  [46154,'0937','A',12,6,5],[46154,'0937','B',13,5,4],
+  [46154,'1201','A',5,4,3],[46154,'1201','B',5,2,1],
+  [46154,'1505','A',4,2,1],[46154,'1505','B',4,2,1],
+  [46154,'1614','A',2,0,0],
+  [46155,'0201','A',20,9,6],[46155,'0201','B',36,15,10],
+  [46155,'0502','A',19,9,5],[46155,'0502','B',12,4,2],
+  [46155,'0937','A',9,5,3],[46155,'0937','B',17,8,4],
+  [46155,'1201','A',12,6,2],[46155,'1201','B',7,4,2],
+  [46155,'1505','A',1,1,0],[46155,'1505','B',1,0,0],
+  [46155,'1614','B',1,1,1],
+  // 05-14 (목 — 평일)
+  [46156,'0201','A',28,7,3],[46156,'0201','B',27,10,5],
+  [46156,'040207','B',1,0,0],
+  [46156,'0502','A',28,15,7],[46156,'0502','B',17,5,3],
+  [46156,'0937','A',5,2,2],[46156,'0937','B',10,4,3],
+  [46156,'1201','A',7,3,1],[46156,'1201','B',5,4,3],
+  [46156,'1505','A',3,2,1],[46156,'1505','B',5,1,1],
+  [46156,'1614','A',1,0,0],[46156,'1614','B',1,0,0],
+  // 05-15 (금 — 평일)
+  [46157,'0201','A',17,6,1],[46157,'0201','B',24,11,7],
+  [46157,'040207','A',1,0,0],
+  [46157,'0502','A',24,9,5],[46157,'0502','B',21,15,12],
+  [46157,'0937','A',15,7,6],[46157,'0937','B',9,4,3],
+  [46157,'1201','A',5,2,0],[46157,'1201','B',9,6,4],
+  [46157,'1505','A',3,1,1],[46157,'1505','B',3,3,3],
+  [46157,'1614','A',1,0,0],[46157,'1614','B',3,2,1],
+  // 05-16 (토 — 주말)
+  [46158,'0201','A',28,12,7],[46158,'0201','B',35,16,10],
+  [46158,'0502','A',19,12,6],[46158,'0502','B',12,8,6],
+  [46158,'0937','A',11,7,4],[46158,'0937','B',16,12,10],
+  [46158,'1201','A',17,6,0],[46158,'1201','B',11,7,3],
+  [46158,'1505','A',1,0,0],[46158,'1505','B',3,2,2],
+  [46158,'1614','B',1,1,0],
+  // 05-17 (일 — 주말)
+  [46159,'0201','A',33,11,7],[46159,'0201','B',41,18,6],
+  [46159,'040207','B',2,1,1],
+  [46159,'0502','A',26,14,6],[46159,'0502','B',35,19,12],
+  [46159,'0937','A',11,4,3],[46159,'0937','B',12,7,5],
+  [46159,'1201','A',9,4,1],[46159,'1201','B',7,3,1],
+  [46159,'1505','B',5,1,0],
+  [46159,'1614','A',5,2,2],
+];
+
+const DATA=[];
+pvR.forEach(p=>{
+  const u=uvR.find(r=>r[0]===p[0]&&r[1]===p[1]&&r[2]===p[2])||[0,0,0,0,0,0];
+  DATA.push({dt:p[0],cate:p[1],g:p[2],
+    lp_pv:p[3],det_pv:p[4],co_pv:p[5],
+    lp_uv:u[3],det_uv:u[4],co_uv:u[5]});
+});
+
+// ── 날짜 상태 ──────────────────────────────────────────
+let selectedRange = { start: 46142, end: 46159 };
+let compareRange  = { start: null, end: null };
+let compareMode   = false;
+let calPickStep   = 0;
+let calPickStep2  = 0;
+let quickFilter   = 'all'; // 'all' | 'weekday' | 'holiday' | 'custom'
+
+const DATE_LABELS = {
+  46142:{label:'04-30',dow:4,holiday:false},   // 목
+  46143:{label:'05-01',dow:5,holiday:true},    // 금 (노동절)
+  46144:{label:'05-02',dow:6,holiday:false},   // 토
+  46145:{label:'05-03',dow:0,holiday:false},   // 일
+  46146:{label:'05-04',dow:1,holiday:false},   // 월
+  46147:{label:'05-05',dow:2,holiday:true},    // 화 (어린이날)
+  46148:{label:'05-06',dow:3,holiday:false},   // 수
+  46149:{label:'05-07',dow:4,holiday:false},   // 목
+  46150:{label:'05-08',dow:5,holiday:false},   // 금
+  46151:{label:'05-09',dow:6,holiday:false},   // 토
+  46152:{label:'05-10',dow:0,holiday:false},   // 일
+  46153:{label:'05-11',dow:1,holiday:false},   // 월
+  46154:{label:'05-12',dow:2,holiday:false},   // 화
+  46155:{label:'05-13',dow:3,holiday:false},   // 수
+  46156:{label:'05-14',dow:4,holiday:false},   // 목
+  46157:{label:'05-15',dow:5,holiday:false},   // 금
+  46158:{label:'05-16',dow:6,holiday:false},   // 토
+  46159:{label:'05-17',dow:0,holiday:false},   // 일
+};
+
+function activeDts(){
+  if(quickFilter==='weekday') return ALL_DATES.filter(d=>WKD.has(d));
+  if(quickFilter==='holiday') return ALL_DATES.filter(d=>HOL.has(d));
+  if(!selectedRange.start) return ALL_DATES;
+  if(!selectedRange.end)   return ALL_DATES.filter(d=>d===selectedRange.start);
+  return ALL_DATES.filter(d=>d>=selectedRange.start && d<=selectedRange.end);
+}
+function compareDts(){
+  if(!compareMode||!compareRange.start||!compareRange.end) return [];
+  return ALL_DATES.filter(d=>d>=compareRange.start && d<=compareRange.end);
+}
+
+// ── 캘린더 ─────────────────────────────────────────────
+// 2026-05 달력 (헤더: 일 월 화 수 목 금 토)
+// 05-01=금요일. 일~목=5칸 비움. 04-30(목)은 앞주 목요일 위치.
+// 실제 배치:
+// [일][월][화][수][목=04/30][금=비][토=비]  ← 4월 마지막 주
+// [일=05/03][월=05/04][화=05/05][수=05/06][목=비][금=05/01][토=05/02]  ← 5월 1주
+// 달력상 05-01(금)이 첫째주 금요일, 04-30(목)이 그 앞주 목요일
+
+function buildCalendar(gridId, monthLabelId, range, step, onPick){
+  const grid = document.getElementById(gridId);
+  if(!grid) return;
+  document.getElementById(monthLabelId).textContent = '2026년 5월';
+  grid.querySelectorAll('.cal-day,.cal-empty').forEach(e=>e.remove());
+
+  // 2026년 달력 레이아웃 (일~토 순서, 0=일 6=토)
+  // 04-30은 목요일(4), 05-01은 금요일(5)
+  // 첫 행: [일비][월비][화비][수비][목=04/30][금비][토비]
+  // 두 번째 행: [일=05/03][월=05/04][화=05/05][수=05/06][목비][금=05/01][토=05/02]
+  // → 순서대로 나열: 빈4, 04-30, 빈2, 05-01, 05-02, 05-03, 05-04, 05-05, 05-06, 빈, 05-08, 05-09, 05-10, 05-11, 빈...
+  // 실제 달력 그리드 순서 (05-07=목 데이터없음):
+  // Row1: _  _  _  _  04/30  _  _
+  // Row2: 05/03  05/04  05/05  05/06  _  05/01  05/02
+  // → 이건 잘못된 배치. 달력은 날짜 순서대로 흘러가야 함.
+  // 올바른 배치: 05-01(금)을 기준으로 앞에 일~목 5칸 빈칸
+  // Row1: _  _  _  _  _  05/01  05/02
+  // Row2: 05/03  05/04  05/05  05/06  _  05/08  05/09
+  // Row3: 05/10  05/11  ...
+
+  // 04-30은 별도 행으로 앞에 추가 (4월 마지막 주)
+  // Row0: _  _  _  _  04/30  _  _
+
+  const addEmpty = (n) => {
+    for(let i=0;i<n;i++){
+      const d=document.createElement('div'); d.className='cal-day empty'; grid.appendChild(d);
+    }
+  };
+  const addCell = (serial, label, isWknd, isHol) => {
+    const cell=makeDayCell(serial,label,isWknd,isHol,range,step);
+    if(serial&&ALL_DATES.includes(serial)) cell.addEventListener('click',()=>onPick(serial));
+    grid.appendChild(cell);
+  };
+
+  // 4월 마지막 주: 일~수 빈 4칸, 목=04/30, 금~토 빈 2칸
+  addEmpty(4);
+  addCell(46142,'30',false,false);   // 04-30 목
+  addEmpty(2);                        // 금,토 빈칸
+
+  // 5월 1주: 일~목 빈 5칸, 금=05/01, 토=05/02
+  addEmpty(5);
+  addCell(46143,'1',false,true);     // 05-01 금 (노동절)
+  addCell(46144,'2',true,false);     // 05-02 토
+
+  // 5월 2주: 일=05/03, 월=05/04, 화=05/05, 수=05/06, 목=05/07, 금=05/08, 토=05/09
+  addCell(46145,'3',true,false);     // 05-03 일
+  addCell(46146,'4',false,false);    // 05-04 월
+  addCell(46147,'5',false,true);     // 05-05 화 (어린이날)
+  addCell(46148,'6',false,false);    // 05-06 수
+  addCell(46149,'7',false,false);    // 05-07 목
+  addCell(46150,'8',false,false);    // 05-08 금
+  addCell(46151,'9',true,false);     // 05-09 토
+
+  // 5월 3주: 일=05/10, 월=05/11, 나머지 빈칸
+  addCell(46152,'10',true,false);    // 05-10 일
+  addCell(46153,'11',false,false);   // 05-11 월
+  addCell(46154,'12',false,false);   // 05-12 화
+  addCell(46155,'13',false,false);   // 05-13 수
+  addCell(46156,'14',false,false);   // 05-14 목
+  addCell(46157,'15',false,false);   // 05-15 금
+  addCell(46158,'16',true,false);    // 05-16 토
+  // 5월 4주
+  addCell(46159,'17',true,false);    // 05-17 일
+  addEmpty(6);                        // 월~토 빈칸
+}
+
+function makeDayCell(serial, label, isWknd, isHol, range, step){
+  const d=document.createElement('div');
+  const hasData=serial&&ALL_DATES.includes(serial);
+  let cls='cal-day';
+  if(!serial){ cls+=' empty'; d.className=cls; d.textContent=label; return d; }
+  if(!hasData) cls+=' no-data'; else cls+=' has-data';
+  // 공휴일 우선, 그다음 주말
+  if(isHol) cls+=' holiday';
+  else if(isWknd) cls+=' weekend';
+  if(range.start&&range.end&&serial>=range.start&&serial<=range.end){
+    if(serial===range.start&&serial===range.end) cls+=' selected';
+    else if(serial===range.start) cls+=' range-start';
+    else if(serial===range.end)   cls+=' range-end';
+    else cls+=' in-range';
+  } else if(range.start&&!range.end&&serial===range.start) cls+=' selected';
+  d.className=cls;
+  d.innerHTML=`${label}${hasData?'<span class="dot"></span>':''}`;
+  return d;
+}
+
+function pickDate(serial){
+  if(!ALL_DATES.includes(serial)) return;
+  clearQuickBtns();
+  if(calPickStep===0){ selectedRange={start:serial,end:null}; calPickStep=1; }
+  else {
+    if(serial<selectedRange.start) selectedRange={start:serial,end:selectedRange.start};
+    else selectedRange.end=serial;
+    calPickStep=0; update();
+  }
+  refreshCals(); updateRangeDisplay();
+}
+function pickDate2(serial){
+  if(!ALL_DATES.includes(serial)) return;
+  if(calPickStep2===0){ compareRange={start:serial,end:null}; calPickStep2=1; }
+  else {
+    if(serial<compareRange.start) compareRange={start:serial,end:compareRange.start};
+    else compareRange.end=serial;
+    calPickStep2=0; update();
+  }
+  refreshCals(); updateRangeDisplay2();
+}
+
+function refreshCals(){
+  buildCalendar('calGrid','calMonthLabel',selectedRange,calPickStep,pickDate);
+  if(compareMode) buildCalendar('calGrid2','calMonthLabel2',compareRange,calPickStep2,pickDate2);
+}
+function updateRangeDisplay(){
+  const dts=activeDts();
+  const sl=selectedRange.start?DATE_LABELS[selectedRange.start]?.label:'—';
+  const el=selectedRange.end?DATE_LABELS[selectedRange.end]?.label:selectedRange.start?'선택 중':'—';
+  document.getElementById('rangeText').textContent=`${sl} ~ ${el}`;
+  document.getElementById('rangeDays').textContent=dts.length?`${dts.length}일`:'';
+}
+function updateRangeDisplay2(){
+  const dts=compareDts();
+  document.getElementById('rangeDisplay2').style.display='flex';
+  const sl=compareRange.start?DATE_LABELS[compareRange.start]?.label:'—';
+  const el=compareRange.end?DATE_LABELS[compareRange.end]?.label:compareRange.start?'선택 중':'—';
+  document.getElementById('rangeText2').textContent=`${sl} ~ ${el}`;
+  document.getElementById('rangeDays2').textContent=dts.length?`${dts.length}일`:'';
+}
+
+function clearQuickBtns(){
+  document.querySelectorAll('#quickBtns button').forEach(b=>b.classList.remove('on'));
+  quickFilter='custom';
+}
+function quickSelect(type){
+  clearQuickBtns();
+  document.querySelector(`[data-q="${type}"]`)?.classList.add('on');
+  quickFilter=type;
+  calPickStep=0;
+  if(type==='all')     selectedRange={start:46142,end:46159};
+  else if(type==='weekday')  selectedRange={start:46142,end:46159};
+  else if(type==='holiday')  selectedRange={start:46142,end:46159};
+  refreshCals(); updateRangeDisplay(); update();
+}
+
+function toggleCompare(){
+  compareMode=!compareMode;
+  document.getElementById('cmpSwitch').classList.toggle('on',compareMode);
+  document.getElementById('cmpCal').classList.toggle('show',compareMode);
+  if(!compareMode) document.getElementById('cmpBanner').classList.remove('show');
+  if(compareMode) buildCalendar('calGrid2','calMonthLabel2',compareRange,calPickStep2,pickDate2);
+  update();
+}
+
+// ── 비교 배너 ───────────────────────────────────────────
+function renderCompareBanner(){
+  const banner=document.getElementById('cmpBanner');
+  if(!compareMode||!compareRange.start||!compareRange.end){ banner.classList.remove('show'); return; }
+  banner.classList.add('show');
+  const dts1=activeDts(), dts2=compareDts();
+  const cates=[...selectedCates];
+  const f1=DATA.filter(d=>dts1.includes(d.dt)&&cates.includes(d.cate));
+  const f2=DATA.filter(d=>dts2.includes(d.dt)&&cates.includes(d.cate));
+  const l1=(DATE_LABELS[selectedRange.start]?.label||'?')+' ~ '+(DATE_LABELS[selectedRange.end]?.label||'?');
+  const l2=(DATE_LABELS[compareRange.start]?.label||'?')+' ~ '+(DATE_LABELS[compareRange.end]?.label||'?');
+  document.getElementById('cmpBannerTitle').textContent=`${l1}  vs  ${l2}`;
+  const metrics=[
+    {k:'lp_uv',l:'LP UV',isPct:false},{k:'lp_pv',l:'LP PV',isPct:false},
+    {k:'cvr_lp_det',l:'LP→상세 CVR',isPct:true},{k:'cvr_det_co',l:'상세→CO CVR',isPct:true},
+    {k:'cvr_lp_co',l:'★LP→CO CVR',isPct:true},
+  ];
+  const grid=document.getElementById('cmpGrid'); grid.innerHTML='';
+  metrics.forEach(m=>{
+    const A1=f1.filter(d=>d.g==='A'),B1=f1.filter(d=>d.g==='B');
+    const A2=f2.filter(d=>d.g==='A'),B2=f2.filter(d=>d.g==='B');
+    const va1=getV(A1,m.k),vb1=getV(B1,m.k),va2=getV(A2,m.k),vb2=getV(B2,m.k);
+    // 기간 간 상대 변화율 (%)
+    const diffA=va1>0?(va2-va1)/va1*100:0, diffB=vb1>0?(vb2-vb1)/vb1*100:0;
+    // 기간 간 절댓값 차이 (%p or 건)
+    const absDA=va2-va1, absDB=vb2-vb1;
+    const fv=v=>m.isPct?v.toFixed(1)+'%':Math.round(v);
+    const dc=v=>v>=0?'var(--green)':'var(--red)';
+    // 상대변화율
+    const ds=v=>(v>=0?'+':'')+v.toFixed(1)+'%';
+    // 절댓값 차이 단위
+    const absFmt=v=>m.isPct
+      ? `(${v>=0?'+':''}${v.toFixed(1)}%p)`
+      : `(${v>=0?'+':''}${Math.round(v)}건)`;
+    const card=document.createElement('div'); card.className='cmp-card';
+    card.innerHTML=`<div class="cmp-card-label">${m.l}</div>
+      <div class="cmp-row"><span class="cmp-period" style="color:#4f8ef7">A군</span></div>
+      <div class="cmp-row"><span class="cmp-period">${l1}</span><span class="cmp-val" style="color:#4f8ef7">${fv(va1)}</span></div>
+      <div class="cmp-row"><span class="cmp-period">${l2}</span><span class="cmp-val" style="color:#6fa3f9">${fv(va2)}</span></div>
+      <div class="cmp-delta" style="color:${dc(diffA)}">A 변화 ${ds(diffA)} <span style="font-size:10px;opacity:0.8">${absFmt(absDA)}</span></div>
+      <div class="cmp-row" style="margin-top:8px"><span class="cmp-period" style="color:#f76b6b">B군</span></div>
+      <div class="cmp-row"><span class="cmp-period">${l1}</span><span class="cmp-val" style="color:#f76b6b">${fv(vb1)}</span></div>
+      <div class="cmp-row"><span class="cmp-period">${l2}</span><span class="cmp-val" style="color:#f79090">${fv(vb2)}</span></div>
+      <div class="cmp-delta" style="color:${dc(diffB)}">B 변화 ${ds(diffB)} <span style="font-size:10px;opacity:0.8">${absFmt(absDB)}</span></div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ── 카테고리 체크박스 ───────────────────────────────────
+let selectedCates = new Set(CK);
+
+const cateListEl = document.getElementById('cateList');
+const secColors  = {'디지털':'#4f8ef7','라이프':'#4ecb94','대량/반복':'#f7b24f'};
+['디지털','라이프','대량/반복'].forEach(sec=>{
+  const secLabel=document.createElement('div');
+  secLabel.className='cate-sector-label';
+  secLabel.style.color=secColors[sec];
+  secLabel.textContent=sec;
+  cateListEl.appendChild(secLabel);
+  CK.filter(c=>CATE[c].s===sec).forEach(c=>{
+    const col=CATE[c].col;
+    const label=document.createElement('label');
+    label.className='cate-check-item checked';
+    label.style.setProperty('--item-col',col);
+    label.innerHTML=`<input type="checkbox" checked data-cate="${c}">
+      <span class="cate-check-box"><svg width="9" height="7" viewBox="0 0 9 7" fill="none"><path d="M1 3.5L3.5 6L8 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span class="cate-dot" style="background:${col}"></span>
+      <span style="flex:1">${CATE[c].n}</span>`;
+    label.querySelector('input').addEventListener('change',e=>{
+      if(e.target.checked){selectedCates.add(c);label.classList.add('checked');}
+      else{selectedCates.delete(c);label.classList.remove('checked');}
+      update();
+    });
+    cateListEl.appendChild(label);
+  });
+});
+function selectAllCates(){
+  selectedCates=new Set(CK);
+  document.querySelectorAll('.cate-check-item input').forEach(cb=>{cb.checked=true;cb.closest('.cate-check-item').classList.add('checked');});
+  update();
+}
+function clearAllCates(){
+  selectedCates=new Set();
+  document.querySelectorAll('.cate-check-item input').forEach(cb=>{cb.checked=false;cb.closest('.cate-check-item').classList.remove('checked');});
+  update();
+}
+
+// ── 차트·데이터 유틸 ────────────────────────────────────
+const S=(rows,k)=>rows.reduce((s,d)=>s+(d[k]||0),0);
+function cvr(rows,num,den){
+  const d=S(rows,den);
+  if(d===0) return 0;
+  const v=S(rows,num)/d*100;
+  return v; // 100% 초과 허용 (PV 기준에서 발생 가능)
+}
+function cvrUV(rows,num,den){
+  // UV 기준은 100% 초과 불가이므로 cap
+  const d=S(rows,den);
+  if(d===0) return 0;
+  return Math.min(S(rows,num)/d*100, 100);
+}
+function getV(rows,m){
+  if(m==='lp_uv') return S(rows,'lp_uv');
+  if(m==='lp_pv') return S(rows,'lp_pv');
+  if(m==='cvr_lp_det') return cvrUV(rows,'det_uv','lp_uv');
+  if(m==='cvr_det_co') return cvrUV(rows,'co_uv','det_uv');
+  if(m==='cvr_lp_co') return cvrUV(rows,'co_uv','lp_uv');
+  if(m==='cvr_det_co_pv') return cvr(rows,'co_pv','det_pv'); // PV는 100 초과 가능
+  if(m==='pvr'){const u=S(rows,'lp_uv');return u>0?S(rows,'lp_pv')/u:0;}
+  return 0;
+}
+function isCtr(m){return m.startsWith('cvr')||m==='pvr';}
+function fmt(v,m){return isCtr(m)?v.toFixed(1)+(m==='pvr'?'x':'%'):Math.round(v);}
+function diffColor(v){return v>0?'var(--green)':v<0?'var(--red)':'var(--text3)';}
+function diffStr(v){return (v>=0?'+':'')+v.toFixed(1)+'%p';}
+
+let charts={};
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+
+function makeChart(id, type, labels, dsA, dsB, pct=true, horizontal=false, unit='', capAt100=false){
+  destroyChart(id);
+  const ctx=document.getElementById(id); if(!ctx) return;
+
+  const yFmt = v => {
+    if(unit==='x') return v.toFixed(1)+'x';
+    if(pct) return v.toFixed(1)+'%';
+    return Math.round(v);
+  };
+  const xFmt = v => {
+    if(horizontal){
+      if(unit==='x') return v.toFixed(1)+'x';
+      if(pct) return v.toFixed(1)+'%';
+      return Math.round(v);
+    }
+    return v;
+  };
+
+  const yMin = (pct && unit!=='x') ? 0 : undefined;
+  const yMax = (pct && unit!=='x' && capAt100) ? 100 : undefined;
+
+  charts[id]=new Chart(ctx,{
+    type,
+    data:{labels,datasets:[
+      {label:'A',data:dsA,
+       backgroundColor:type==='line'?'rgba(79,142,247,0.08)':CA,
+       borderColor:CA,pointRadius:type==='line'?4:0,
+       tension:0.3,fill:type==='line',borderDash:[]},
+      {label:'B',data:dsB,
+       backgroundColor:type==='line'?'rgba(247,107,107,0.08)':CB,
+       borderColor:CB,pointRadius:type==='line'?4:0,
+       tension:0.3,fill:type==='line',borderDash:type==='line'?[5,3]:[]}
+    ]},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      indexAxis:horizontal?'y':'x',
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            label: ctx => {
+              const v = ctx.parsed[horizontal?'x':'y'];
+              const lbl = ctx.dataset.label==='A'?'A군':'B군';
+              if(unit==='x') return `${lbl}: ${v.toFixed(2)}x`;
+              if(pct) return `${lbl}: ${v.toFixed(1)}%`;
+              return `${lbl}: ${Math.round(v)}`;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{
+          ticks:{callback:xFmt, font:{size:10}, color:'#555d72', maxRotation:0},
+          grid:{color:'rgba(255,255,255,0.04)'},
+          border:{color:'rgba(255,255,255,0.07)'},
+          ...(horizontal && pct && unit!=='x' && capAt100 ? {min:0, max:100} : {}),
+          ...(horizontal && pct && unit!=='x' && !capAt100 ? {min:0} : {}),
+          ...(horizontal && unit==='x' ? {min:0} : {}),
+        },
+        y:{
+          ticks:{callback:yFmt, font:{size:10}, color:'#555d72'},
+          grid:{color:'rgba(255,255,255,0.04)'},
+          border:{color:'rgba(255,255,255,0.07)'},
+          ...(!horizontal && yMin!==undefined ? {min:yMin, ...(yMax!==undefined?{max:yMax}:{})} : {}),
+        }
+      }
+    }
+  });
+}
+
+// ── 렌더 함수 ───────────────────────────────────────────
+function renderCards(f){
+  const A=f.filter(d=>d.g==='A'),B=f.filter(d=>d.g==='B');
+  const metrics=[
+    {k:'lp_uv', l:'LP UV',         star:false},
+    {k:'lp_pv', l:'LP PV',         star:false},
+    {k:'cvr_lp_det',  l:'LP→상세 CVR',      star:false},
+    {k:'cvr_det_co',  l:'상세→CO CVR',      star:false},
+    {k:'cvr_lp_co',   l:'LP→CO CVR',        star:true},
+    {k:'cvr_det_co_pv',l:'상세→CO CVR (PV)',star:false},
+    {k:'pvr',  l:'PV/UV 비율',      star:false},
+  ];
+  const c=document.getElementById('cards'); c.innerHTML='';
+  metrics.forEach(m=>{
+    const va=getV(A,m.k), vb=getV(B,m.k);
+    const isCtrMetric = m.k.startsWith('cvr');
+    const isPvrMetric = m.k==='pvr';
+    const isRaw = !isCtrMetric && !isPvrMetric; // LP UV, LP PV
+
+    // 상대 변화율: (B-A)/A × 100 → 항상 %
+    const relDiff = va>0 ? (vb-va)/va*100 : 0;
+    // 절댓값 차이: 단위에 따라 다름
+    const absDiff = vb - va;
+
+    // 절댓값 차이 포맷
+    let absDiffStr = '';
+    if(isCtrMetric){
+      // CVR 차이 → %p
+      absDiffStr = `${absDiff>=0?'+':''}${absDiff.toFixed(1)}%p`;
+    } else if(isPvrMetric){
+      // PV/UV 비율 차이 → x
+      absDiffStr = `${absDiff>=0?'+':''}${absDiff.toFixed(2)}x`;
+    } else {
+      // UV/PV 건수 차이 → 건
+      absDiffStr = `${absDiff>=0?'+':''}${Math.round(absDiff)}건`;
+    }
+
+    // 카드 표시: 상대변화율(%) + 절댓값 차이(%p / x / 건)
+    const relStr = `${relDiff>=0?'+':''}${relDiff.toFixed(1)}%`;
+
+    const el=document.createElement('div');
+    el.className='mcard'+(m.star?' star':'');
+    el.innerHTML=`${m.star?'<div class="star-badge">최종 전환율</div>':''}
+      <div class="clabel">${m.l}</div>
+      <div class="cvals">
+        <span class="cval-a">${fmt(va,m.k)}</span><span style="font-size:10px;color:var(--text3)">A</span>
+        <span class="cval-b">${fmt(vb,m.k)}</span><span style="font-size:10px;color:var(--text3)">B</span>
+      </div>
+      <div class="cdiff" style="color:${diffColor(relDiff)}">
+        <span title="상대 변화율">${relStr}</span>
+        <span style="color:var(--text3);margin:0 3px">·</span>
+        <span title="절댓값 차이" style="font-size:10px">${absDiffStr}</span>
+      </div>`;
+    c.appendChild(el);
+  });
+}
+
+function renderDateChart(f,m){
+  const dts = activeDts();
+  const labels = dts.map(d=>DL[d]);
+  const vA = dts.map(d=>getV(f.filter(r=>r.dt===d&&r.g==='A'),m));
+  const vB = dts.map(d=>getV(f.filter(r=>r.dt===d&&r.g==='B'),m));
+  const diff = vA.map((a,i)=>vB[i]-a); // B-A
+
+  const isPct = m.startsWith('cvr');
+  const isPvr = m==='pvr';
+  const isNum = !isPct && !isPvr;
+  const capAt100 = isPct && m!=='cvr_det_co_pv';
+  const unit = isPvr?'x':'';
+
+  const fmtY = v => {
+    if(isPvr) return v.toFixed(1)+'x';
+    if(isPct) return v.toFixed(1)+'%';
+    return Math.round(v);
+  };
+
+  // 공휴일·주말 배경 플러그인 데이터
+  const bgAnnotations = dts.map((d,i)=>{
+    const info = DATE_LABELS[d];
+    if(!info) return null;
+    if(info.holiday) return {i, color:'rgba(247,178,79,0.10)'};   // 공휴일
+    const dow = info.dow; // 0=일,6=토
+    if(dow===0||dow===6) return {i, color:'rgba(139,146,168,0.08)'}; // 주말
+    return null;
+  }).filter(Boolean);
+
+  // 커스텀 배경 플러그인
+  const bgPlugin = {
+    id:'dateBg',
+    beforeDraw(chart){
+      const {ctx, chartArea:{left,right,top,bottom}, scales:{x}} = chart;
+      if(!x) return;
+      bgAnnotations.forEach(({i,color})=>{
+        const xPos = x.getPixelForTick(i);
+        const bandwidth = x.width / (labels.length || 1);
+        ctx.save();
+        ctx.fillStyle = color;
+        ctx.fillRect(xPos - bandwidth/2, top, bandwidth, bottom-top);
+        ctx.restore();
+      });
+    }
+  };
+
+  // 메인 라인 차트
+  destroyChart('dtChart');
+  const ctx1 = document.getElementById('dtChart');
+  if(!ctx1) return;
+
+  // A/B 사이 구간 채우기 (B>A=초록, A>B=빨강)
+  // Chart.js에서 fill between은 플러그인 없이 구현하기 위해
+  // 두 데이터셋의 차이로 구간 색상 결정
+  const fillAboveData = vA.map((a,i)=> vB[i]>=a ? vB[i] : a); // B>A 구간의 상한
+  const fillBelowData = vA.map((a,i)=> vB[i]>=a ? a : vB[i]);  // B>A 구간의 하한
+
+  charts['dtChart'] = new Chart(ctx1, {
+    type:'line',
+    plugins:[bgPlugin],
+    data:{
+      labels,
+      datasets:[
+        // 구간 채우기용 (B>A: 초록)
+        {label:'_fillB',data:vB,
+         borderColor:'transparent',
+         backgroundColor:'rgba(78,203,148,0.13)',
+         fill:'+1', tension:0.3, pointRadius:0, order:3},
+        // 구간 채우기용 (A>B: 빨강) — A 라인
+        {label:'_fillA',data:vA,
+         borderColor:'transparent',
+         backgroundColor:'rgba(247,107,107,0.12)',
+         fill:'-1', tension:0.3, pointRadius:0, order:4},
+        // 실제 A 라인
+        {label:'A군',data:vA,
+         borderColor:'#4f8ef7',backgroundColor:'rgba(79,142,247,0)',
+         borderWidth:2,pointRadius:4,pointHoverRadius:6,
+         pointBackgroundColor:'#4f8ef7',
+         tension:0.3,fill:false,borderDash:[], order:1},
+        // 실제 B 라인
+        {label:'B군',data:vB,
+         borderColor:'#f76b6b',backgroundColor:'rgba(247,107,107,0)',
+         borderWidth:2,pointRadius:4,pointHoverRadius:6,
+         pointBackgroundColor:'#f76b6b',
+         tension:0.3,fill:false,borderDash:[5,3], order:2},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            title: items => items[0].label,
+            label: item => {
+              if(item.dataset.label.startsWith('_')) return null;
+              const v = item.parsed.y;
+              return `${item.dataset.label}: ${fmtY(v)}`;
+            },
+            afterBody: items => {
+              const filtered = items.filter(i=>!i.dataset.label.startsWith('_'));
+              if(filtered.length<2) return [];
+              const d = filtered.find(i=>i.dataset.label==='B군')?.parsed.y -
+                        filtered.find(i=>i.dataset.label==='A군')?.parsed.y;
+              if(d===undefined) return [];
+              const sign = d>=0?'+':'';
+              return [`차이(B-A): ${sign}${isPvr?d.toFixed(2)+'x':isPct?d.toFixed(1)+'%p':Math.round(d)}`];
+            }
+          },
+          filter: item => !item.dataset.label.startsWith('_')
+        }
+      },
+      scales:{
+        x:{ticks:{font:{size:10},color:'#555d72',maxRotation:30},
+           grid:{color:'rgba(255,255,255,0.04)'},
+           border:{color:'rgba(255,255,255,0.07)'}},
+        y:{
+          ticks:{callback:fmtY, font:{size:10}, color:'#555d72'},
+          grid:{color:'rgba(255,255,255,0.04)'},
+          border:{color:'rgba(255,255,255,0.07)'},
+          ...(capAt100?{min:0,max:100}:isPct?{min:0}:isPvr?{min:0}:{})
+        }
+      }
+    }
+  });
+
+  // 차이값(B-A) 차트
+  destroyChart('dtDiffChart');
+  const ctx2 = document.getElementById('dtDiffChart');
+  if(!ctx2) return;
+
+  const diffColors = diff.map(v => v>=0 ? 'rgba(78,203,148,0.7)' : 'rgba(247,107,107,0.7)');
+  const diffBorders = diff.map(v => v>=0 ? '#4ecb94' : '#f76b6b');
+
+  charts['dtDiffChart'] = new Chart(ctx2, {
+    type:'bar',
+    plugins:[bgPlugin],
+    data:{
+      labels,
+      datasets:[{
+        label:'B-A',
+        data:diff,
+        backgroundColor:diffColors,
+        borderColor:diffBorders,
+        borderWidth:1,
+        borderRadius:3,
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          callbacks:{
+            label: item => {
+              const v = item.parsed.y;
+              const sign = v>=0?'+':'';
+              return `B-A: ${sign}${isPvr?v.toFixed(2)+'x':isPct?v.toFixed(1)+'%p':Math.round(v)}`;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{ticks:{font:{size:9},color:'#555d72',maxRotation:30},
+           grid:{color:'rgba(255,255,255,0.04)'},
+           border:{color:'rgba(255,255,255,0.07)'}},
+        y:{
+          ticks:{callback:v=>isPvr?v.toFixed(1)+'x':isPct?v.toFixed(1)+'%p':Math.round(v),
+                 font:{size:9},color:'#555d72'},
+          grid:{color:'rgba(255,255,255,0.04)', drawBorder:false},
+          border:{color:'rgba(255,255,255,0.07)'},
+          // 0 기준선 강조
+          afterDataLimits(scale){
+            const max=Math.max(...diff.map(Math.abs),0.1);
+            scale.max= max*1.3;
+            scale.min=-max*1.3;
+          }
+        }
+      }
+    }
+  });
+
+  // 차트 레이블 업데이트
+  const metricLabels = {
+    'lp_uv':'LP UV','lp_pv':'LP PV',
+    'cvr_lp_det':'LP→상세 CVR (UV)','cvr_det_co':'상세→CO CVR (UV)',
+    'cvr_lp_co':'★ LP→CO CVR (UV)','cvr_det_co_pv':'상세→CO CVR (PV)',
+    'pvr':'PV/UV 비율'
+  };
+  const el = document.getElementById('dtChartLabel');
+  if(el) el.textContent = metricLabels[m]||m;
+}
+
+function renderHBars(f){
+  const activeCK=CK.filter(c=>selectedCates.has(c));
+  const ga=(c,k)=>S(f.filter(d=>d.cate===c&&d.g==='A'),k);
+  const gb=(c,k)=>S(f.filter(d=>d.cate===c&&d.g==='B'),k);
+  const cA=(c,n,d)=>{const dv=ga(c,d);return dv>0?ga(c,n)/dv*100:0;};
+  const cB=(c,n,d)=>{const dv=gb(c,d);return dv>0?gb(c,n)/dv*100:0;};
+  const labels=activeCK.map(c=>CATE[c].n);
+  // c1~c3: UV 기준 CVR → cap100=true
+  makeChart('c1','bar',labels,activeCK.map(c=>cA(c,'det_uv','lp_uv')),activeCK.map(c=>cB(c,'det_uv','lp_uv')),true,true,'',true);
+  makeChart('c2','bar',labels,activeCK.map(c=>cA(c,'co_uv','det_uv')),activeCK.map(c=>cB(c,'co_uv','det_uv')),true,true,'',true);
+  makeChart('c3','bar',labels,activeCK.map(c=>cA(c,'co_uv','lp_uv')),activeCK.map(c=>cB(c,'co_uv','lp_uv')),true,true,'',true);
+  // c4: PV 기준 CVR → cap100=false (초과 가능)
+  makeChart('c4','bar',labels,activeCK.map(c=>cA(c,'co_pv','det_pv')),activeCK.map(c=>cB(c,'co_pv','det_pv')),true,true,'',false);
+  // c5,c6: 단순 수치
+  makeChart('c5','bar',labels,activeCK.map(c=>ga(c,'lp_uv')),activeCK.map(c=>gb(c,'lp_uv')),false,true,'',false);
+  makeChart('c6','bar',labels,activeCK.map(c=>ga(c,'lp_pv')),activeCK.map(c=>gb(c,'lp_pv')),false,true,'',false);
+}
+
+function renderTable(f){
+  const SC={'디지털':CA,'라이프':'#4ecb94','대량/반복':'#f7b24f'};
+
+  // 헤더: 섹터(1) + 카테고리(1) + 군(1) + LP UV(1) + Det UV(1) + CO UV(1) + LP PV(1) + Det PV(1) + CO PV(1) + PV/UV(1) + LP→상세CVR(1) + 상세→CO CVR(UV)(1) + ★LP→CO CVR(UV)(1) + 상세→CO CVR(PV)(1) = 14컬럼
+  let html=`<thead><tr>
+    <th class="tl" style="width:52px">섹터</th>
+    <th class="tl" style="width:80px">카테고리</th>
+    <th style="width:28px">군</th>
+    <th>LP UV</th><th>Det UV</th><th>CO UV</th>
+    <th>LP PV</th><th>Det PV</th><th>CO PV</th>
+    <th>PV/UV</th>
+    <th>LP→상세<br>CVR(UV)</th>
+    <th>상세→CO<br>CVR(UV)</th>
+    <th style="color:#4f8ef7">★LP→CO<br>CVR(UV)</th>
+    <th>상세→CO<br>CVR(PV)</th>
+  </tr></thead><tbody>`;
+
+  ['디지털','라이프','대량/반복'].forEach(sec=>{
+    const sc=CK.filter(c=>CATE[c].s===sec&&selectedCates.has(c));
+    if(!sc.length) return;
+
+    sc.forEach((c,ci)=>{
+      const col=SC[sec];
+      const rA=f.filter(d=>d.cate===c&&d.g==='A');
+      const rB=f.filter(d=>d.cate===c&&d.g==='B');
+
+      // 행별 데이터 계산
+      const calc=(rows)=>{
+        const luv=S(rows,'lp_uv'),duv=S(rows,'det_uv'),cuv=S(rows,'co_uv');
+        const lpv=S(rows,'lp_pv'),dpv=S(rows,'det_pv'),cpv=S(rows,'co_pv');
+        return {luv,duv,cuv,lpv,dpv,cpv,
+          pvr: luv>0?(lpv/luv).toFixed(1):'—',
+          c1:  luv>0?(duv/luv*100).toFixed(1)+'%':'—',
+          c2:  duv>0?(cuv/duv*100).toFixed(1)+'%':'—',
+          c3:  luv>0?(cuv/luv*100).toFixed(1)+'%':'—',
+          c4:  dpv>0?(cpv/dpv*100).toFixed(1)+'%':'—',
+        };
+      };
+      const a=calc(rA), b=calc(rB);
+
+      // diff helpers
+      const dn=(bv,av)=>{const v=bv-av; const cl=v>0?'pos':v<0?'neg':'neu'; return `<td><span class="${cl}">${v>=0?'+':''}${v}</span></td>`;};
+      const dp=(bv,av)=>{const v=bv-av; const cl=v>0?'pos':v<0?'neg':'neu'; return `<td><span class="${cl}">${v>=0?'+':''}${v.toFixed(1)}%p</span></td>`;};
+      const dpx=(bv,av)=>{const v=bv-av; const cl=v>0?'pos':v<0?'neg':'neu'; return `<td><span class="${cl}">${v>=0?'+':''}${v.toFixed(1)}x</span></td>`;};
+
+      const pvrA=a.luv>0?a.lpv/a.luv:0, pvrB=b.luv>0?b.lpv/b.luv:0;
+      const d1A=a.luv>0?a.duv/a.luv*100:0, d1B=b.luv>0?b.duv/b.luv*100:0;
+      const d2A=a.duv>0?a.cuv/a.duv*100:0, d2B=b.duv>0?b.cuv/b.duv*100:0;
+      const d3A=a.luv>0?a.cuv/a.luv*100:0, d3B=b.luv>0?b.cuv/b.luv*100:0;
+      const d4A=a.dpv>0?a.cpv/a.dpv*100:0, d4B=b.dpv>0?b.cpv/b.dpv*100:0;
+
+      // 섹터·카테고리 셀은 rowspan=3 (A행, B행, diff행)
+      const sectorCell = ci===0
+        ? `<td rowspan="3" class="tl" style="font-weight:600;color:${col};border-left:3px solid ${col};padding-left:8px;vertical-align:middle;border-bottom:2px solid var(--border2)">${sec}</td>`
+        : `<td rowspan="3" class="tl" style="border-left:3px solid ${col};padding-left:8px;vertical-align:middle;border-bottom:2px solid var(--border2)"></td>`;
+      const cateCell = `<td rowspan="3" class="tl" style="font-weight:500;color:var(--text);vertical-align:middle;border-bottom:2px solid var(--border2)">${CATE[c].n}</td>`;
+
+      // A행
+      html+=`<tr>
+        ${sectorCell}${cateCell}
+        <td class="ga" style="text-align:center">A</td>
+        <td>${a.luv}</td><td>${a.duv}</td><td>${a.cuv}</td>
+        <td>${a.lpv}</td><td>${a.dpv}</td><td>${a.cpv}</td>
+        <td class="neu">${a.pvr}</td>
+        <td>${a.c1}</td><td>${a.c2}</td>
+        <td class="hi-col">${a.c3}</td>
+        <td>${a.c4}</td>
+      </tr>`;
+
+      // B행
+      html+=`<tr>
+        <td class="gb" style="text-align:center">B</td>
+        <td>${b.luv}</td><td>${b.duv}</td><td>${b.cuv}</td>
+        <td>${b.lpv}</td><td>${b.dpv}</td><td>${b.cpv}</td>
+        <td class="neu">${b.pvr}</td>
+        <td>${b.c1}</td><td>${b.c2}</td>
+        <td class="hi-col">${b.c3}</td>
+        <td>${b.c4}</td>
+      </tr>`;
+
+      // diff행 (B-A) — 섹터·카테고리 셀 없음 (rowspan으로 이미 차지)
+      const d3diff = d3B-d3A;
+      const d3cl = d3diff>0?'pos':d3diff<0?'neg':'neu';
+      html+=`<tr class="diff-row" style="border-bottom:2px solid var(--border2)">
+        <td style="text-align:center;color:var(--text3);font-size:10px">B-A</td>
+        ${dn(b.luv,a.luv)}${dn(b.duv,a.duv)}${dn(b.cuv,a.cuv)}
+        ${dn(b.lpv,a.lpv)}<td class="neu">—</td><td class="neu">—</td>
+        ${dpx(pvrB,pvrA)}
+        ${dp(d1B,d1A)}${dp(d2B,d2A)}
+        <td class="hi-col"><span class="${d3cl}">${d3diff>=0?'+':''}${d3diff.toFixed(1)}%p</span></td>
+        ${dp(d4B,d4A)}
+      </tr>`;
+    });
+  });
+
+  document.getElementById('tbl').innerHTML=html+'</tbody>';
+}
+
+// ── 누적 총합 ─────────────────────────────────────────────
+let cumMetric = 'lp_uv';
+
+const CUM_CATE_COLORS = {
+  '0201':'#4f8ef7','0502':'#6fa3f9',
+  '1201':'#4ecb94','0937':'#7ddbb4',
+  '1614':'#f7b24f','1505':'#f7c87a','040207':'#f7da9f'
+};
+
+function setCumMetric(m){
+  cumMetric = m;
+  ['cumBtn0','cumBtn1','cumBtn2'].forEach(id=>document.getElementById(id)?.classList.remove('on'));
+  const idx = {'lp_uv':0,'co_uv':1,'cvr_lp_co':2}[m];
+  document.getElementById(`cumBtn${idx}`)?.classList.add('on');
+  renderCumulative();
+}
+
+function renderCumulative(){
+  const dts = activeDts();
+  const activeCK = CK.filter(c=>selectedCates.has(c));
+  const isCVR = cumMetric === 'cvr_lp_co';
+
+  function buildCumData(g){
+    return activeCK.map(c=>{
+      let cumLuv=0, cumCuv=0;
+      return dts.map(dt=>{
+        const rows=DATA.filter(d=>d.dt===dt&&d.cate===c&&d.g===g);
+        cumLuv+=S(rows,'lp_uv'); cumCuv+=S(rows,'co_uv');
+        if(isCVR) return cumLuv>0?cumCuv/cumLuv*100:0;
+        return cumMetric==='lp_uv'?cumLuv:cumCuv;
+      });
+    });
+  }
+
+  const cumDataA = buildCumData('A');
+  const cumDataB = buildCumData('B');
+  const labels = dts.map(d=>DL[d]);
+
+  function makeStackedChart(id, cumData){
+    destroyChart(id);
+    const ctx=document.getElementById(id); if(!ctx) return;
+    charts[id]=new Chart(ctx,{
+      type:'line',
+      data:{labels, datasets:activeCK.map((c,i)=>({
+        label: CATE[c].n,
+        data: cumData[i],
+        borderColor: CUM_CATE_COLORS[c],
+        backgroundColor: CUM_CATE_COLORS[c]+'28',
+        borderWidth: 2,
+        pointRadius: 3,
+        tension: 0.3,
+        fill: isCVR ? false : 'origin',
+        order: activeCK.length-i,
+      }))},
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{
+          legend:{display:true,position:'bottom',
+            labels:{font:{size:10},color:'#8b92a8',boxWidth:12,padding:8}},
+          tooltip:{callbacks:{label:item=>{
+            const v=item.parsed.y;
+            return ` ${item.dataset.label}: ${isCVR?v.toFixed(1)+'%':Math.round(v)}`;
+          }}}
+        },
+        scales:{
+          x:{ticks:{font:{size:10},color:'#555d72',maxRotation:30},
+             grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.07)'}},
+          y:{ticks:{callback:v=>isCVR?v.toFixed(0)+'%':v,font:{size:10},color:'#555d72'},
+             grid:{color:'rgba(255,255,255,0.04)'},border:{color:'rgba(255,255,255,0.07)'},
+             stacked:!isCVR, ...(isCVR?{min:0,max:100}:{min:0})}
+        }
+      }
+    });
+  }
+
+  makeStackedChart('cumA', cumDataA);
+  makeStackedChart('cumB', cumDataB);
+  renderCumTable(dts, activeCK);
+}
+
+function renderCumTable(dts, activeCK){
+  const isCVR = cumMetric==='cvr_lp_co';
+  let html=`<thead><tr>
+    <th class="tl" style="width:76px">카테고리</th>
+    <th class="tl" style="width:26px">군</th>`;
+  dts.forEach(dt=>{
+    const lbl=DL[dt].split('(');
+    html+=`<th style="font-size:10px">${lbl[0]}<br><span style="font-size:9px;opacity:.6">${lbl[1]?'('+lbl[1]:''}</span></th>`;
+  });
+  html+=`<th style="color:#4f8ef7">최종 누적</th></tr></thead><tbody>`;
+
+  activeCK.forEach((c,ci)=>{
+    ['A','B'].forEach((g,gi)=>{
+      let cumLuv=0,cumCuv=0;
+      const vals=dts.map(dt=>{
+        const rows=DATA.filter(d=>d.dt===dt&&d.cate===c&&d.g===g);
+        cumLuv+=S(rows,'lp_uv'); cumCuv+=S(rows,'co_uv');
+        if(isCVR) return cumLuv>0?(cumCuv/cumLuv*100).toFixed(1)+'%':'—';
+        return cumMetric==='lp_uv'?cumLuv:cumCuv;
+      });
+      const last=vals[vals.length-1];
+      const gc=g==='A'?'ga':'gb';
+      html+=`<tr>
+        ${gi===0?`<td rowspan="3" class="tl" style="font-weight:500;color:var(--text);vertical-align:middle;border-left:2px solid ${CUM_CATE_COLORS[c]};padding-left:8px">${CATE[c].n}</td>`:''}
+        <td class="${gc} tl" style="font-size:11px">${g}</td>
+        ${vals.map(v=>`<td style="font-size:11px;font-family:'IBM Plex Mono',monospace;text-align:right">${v}</td>`).join('')}
+        <td class="hi-col" style="font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace">${last}</td>
+      </tr>`;
+    });
+
+    // B-A 차이행
+    let lA=0,cA_=0,lB=0,cB_=0;
+    const diffVals=dts.map(dt=>{
+      const rA=DATA.filter(d=>d.dt===dt&&d.cate===c&&d.g==='A');
+      const rB=DATA.filter(d=>d.dt===dt&&d.cate===c&&d.g==='B');
+      lA+=S(rA,'lp_uv'); cA_+=S(rA,'co_uv');
+      lB+=S(rB,'lp_uv'); cB_+=S(rB,'co_uv');
+      if(isCVR){
+        const d=(lB>0?cB_/lB*100:0)-(lA>0?cA_/lA*100:0);
+        return `<span class="${d>0?'pos':d<0?'neg':'neu'}">${d>=0?'+':''}${d.toFixed(1)}%p</span>`;
+      }
+      const vA=cumMetric==='lp_uv'?lA:cA_, vB=cumMetric==='lp_uv'?lB:cB_, d=vB-vA;
+      return `<span class="${d>0?'pos':d<0?'neg':'neu'}">${d>=0?'+':''}${d}</span>`;
+    });
+    html+=`<tr class="diff-row" style="border-bottom:2px solid var(--border2)">
+      <td class="tl" style="font-size:10px;color:var(--text3);padding-left:8px">B-A</td>
+      ${diffVals.map(v=>`<td style="font-size:11px;text-align:right">${v}</td>`).join('')}
+      <td class="hi-col" style="font-size:11px">${diffVals[diffVals.length-1]}</td>
+    </tr>`;
+  });
+  document.getElementById('cumTable').innerHTML=html+'</tbody>';
+}
+
+function update(){
+  const dts=activeDts();
+  const f=DATA.filter(d=>dts.includes(d.dt)&&selectedCates.has(d.cate));
+  renderCards(f);
+  renderDateChart(f,document.getElementById('selMetric').value);
+  renderHBars(f);
+  renderTable(f);
+  renderCompareBanner();
+  renderCumulative();
+}
+
+// ── 초기 실행 ────────────────────────────────────────────
+refreshCals();
+updateRangeDisplay();
+document.getElementById('selMetric').addEventListener('change',update);
+update();
+</script>
+</body>
+</html>
